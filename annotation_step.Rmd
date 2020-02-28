@@ -1,0 +1,148 @@
+---
+title: "annotation.rmd"
+output: html_document
+---
+
+```{r}
+library(phylotools)
+library(ape)
+```
+
+```{r}
+# this is annotaion database
+
+db <- read_delim("/home/sedreh/Downloads/all_that_I_have/prokaryotes.txt", "\t", escape_double = FALSE, trim_ws = TRUE)
+
+head(db)
+```
+
+```{r}
+tree <- read.tree(rooted_tree <- "/home/sedreh/Downloads/all_that_I_have/clustering/hmmsearch/alignments/fastas/final_trees/Rooted_trees/Cas10_0_III.fasta.nwk.nwk")
+
+
+```
+
+```{r}
+
+labels <- tree[["tip.label"]]
+
+out <-strsplit(as.character(labels),'_')
+final_labels <- data.frame(do.call(rbind, out))
+colnames(final_labels) <- c('a', 'b', 'c', 'd', 'e')
+
+ids <- data.frame(paste(final_labels$a, final_labels$b, sep='_'), final_labels$c, final_labels$d, final_labels$e)
+
+colnames(ids)[1] <- "gcf_ids"
+
+# replace all the F's with A's to form the GCA id out of GCF ids
+#ids$gca_ids <- gsub('F', 'A', ids$gcf_ids)
+out <-strsplit(as.character(labels),'_')
+final_labels <- data.frame(do.call(rbind, out))
+colnames(final_labels) <- c('a', 'b', 'c', 'd', 'e')
+ids <- data.frame(paste(final_labels$a, final_labels$b, sep='_'), final_labels$c, final_labels$d, final_labels$e)
+
+colnames(ids)[1] <- "gcf_ids"
+
+# replace all the F's with A's to form the GCA id out of GCF ids
+ids$gca_ids <- gsub('F', 'A', ids$gcf_ids)
+
+
+```
+
+```{r}
+# creating final annotated tree
+dt1 <- data.table(ids, key = "gca_ids") 
+dt2 <- data.table(db, key = "Assembly Accession")
+annotation <- dt2[dt1]
+
+annotation$`#Organism/Name`[is.na(annotation$`#Organism/Name`)] <- 'unclassified'
+annotation$Group[is.na(annotation$Group)] <- 'unclassified'
+
+final <- annotation %>%
+  select(`#Organism/Name`, Group, SubGroup, "Assembly Accession", gcf_ids, final_labels.c, final_labels.d, final_labels.e)
+
+final$tip_lable <- paste(final$gcf_ids, final$final_labels.c, final$final_labels.d, final$final_labels.e, sep='_')
+
+final$gcf_ids <- NULL
+final$final_labels.c <- NULL
+final$final_labels.d <- NULL
+final$final_labels.e <- NULL
+final$`Assembly Accession` <- NULL
+
+final$new_lable <- paste(final$`#Organism/Name`, final$Group, final$SubGroup, final$tip_lable, sep=' ')
+final$`#Organism/Name` <- NULL
+
+# we will use this vector to group our tree nodes
+
+#### I have to change this line to specify whether I want to colour by group or subgroup
+otu_group <- final$SubGroup
+
+final$Group <- NULL
+final$SubGroup <- NULL
+
+
+```
+
+```{r}
+# creating final annotated tree
+dt1 <- data.table(final, key = "tip_lable")
+lls <- data.frame(tree[["tip.label"]])
+colnames(lls)[1] <- 'tip.label'
+
+dt2 <- data.table(lls, key='tip.label')
+
+
+X <- dt2[dt1]
+
+#View(db)
+```
+
+```{r}
+
+# final annotated tree
+library(castor)
+ntree <- sub.taxa.label(tree, X)
+
+
+# write_tree(ntree, file= paste("/home/sedreh/Downloads/all_that_I_have/clustering/hmmsearch/alignments/fastas/final_trees/Rooted_trees/annotated_rooted_tree/annotated_rooted_tree", ".nwk", sep=""),
+#             append               = FALSE,
+#             digits               = 10,
+#             quoting              = 0,
+#             include_edge_labels  = FALSE,
+#             include_edge_numbers = FALSE)
+
+
+
+```
+
+```{r}
+
+
+f_name <- "/home/sedreh/Downloads/all_that_I_have/clustering/hmmsearch/alignments/fastas/final_trees/Rooted_trees/annotated_rooted_images/image/Cas10_0_III.jpeg"
+info <- otu_group
+groupInfo <- split(ntree$tip.label, gsub("(>\\w+)", "", ntree$tip.label))
+ascl1 <- groupOTU(ntree, groupInfo)
+
+jpeg(f_name, units="in", width=3, height=21, res=700)
+
+ggtree(ascl1, aes(color=group), layout='rectangular') + geom_tiplab(size=0.7, align=TRUE, linesize=0.01) + theme_tree2() +  theme(legend.position='none')
+dev.off()
+
+
+```
+```{r}
+boot.phylo(nj(dist),dist,FUN = function(xx) nj(xx),B=100)
+```
+
+
+```{r}
+str(tree)
+```
+
+```{r}
+species <- tree$tip.label
+species
+```
+
+
+
